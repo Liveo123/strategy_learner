@@ -2,10 +2,16 @@
 Template for implementing StrategyLearner  (c) 2016 Tucker Balch
 """
 
-import datetime as dt
+import datetime
 import pandas as pd
+import numpy as np
 import util as ut
 import random
+import BagLearner as bl
+import DTLearner as dt
+from marketsimcode import compute_portvals
+from indicators import exponential_mov_avg, simple_mov_avg, bollinger_bands
+
 
 class StrategyLearner(object):
 
@@ -13,52 +19,127 @@ class StrategyLearner(object):
     def __init__(self, verbose = False, impact=0.0):
         self.verbose = verbose
         self.impact = impact
+        self.N = 10
+        self.window_size = 10
+        self.bag = 20
+        self.feature_size = 5
+        self.leafSz = 5
+        leaf_size = 5
+        bag = 20
 
-    # this method should create a QLearner, and train it for trading
+        self.learner = bl.BagLearner(learner=dt.DTLearner,
+                                     bags=bag,
+                                     kwargs={"leaf_size":leaf_size})
+
     def addEvidence(self, symbol = "IBM", \
-        sd=dt.datetime(2008,1,1), \
-        ed=dt.datetime(2009,1,1), \
-        sv = 10000): 
+        sd=datetime.datetime(2008,1,1), \
+        ed=datetime.datetime(2009,1,1), \
+        sv = 10000):
 
-        # add your code to do learning here
+        # Load up the relevant price data form the csv
+        prices = ut.get_data([symbol], pd.date_range(sd, ed))
+        prices = prices[symbol]
 
-        # example usage of the old backward compatible util function
-        syms=[symbol]
-        dates = pd.date_range(sd, ed)
-        prices_all = ut.get_data(syms, dates)  # automatically adds SPY
-        prices = prices_all[syms]  # only portfolio symbols
-        prices_SPY = prices_all['SPY']  # only SPY, for comparison later
-        if self.verbose: print prices
-  
-        # example use with new colname 
-        volume_all = ut.get_data(syms, dates, colname = "Volume")  # automatically adds SPY
-        volume = volume_all[syms]  # only portfolio symbols
-        volume_SPY = volume_all['SPY']  # only SPY, for comparison later
-        if self.verbose: print volume
+        # Calculate the Bollinger, the Simple Moving Average and the
+        # Exponetial Moving Average for the prices found.
+        bol_band = bollinger_bands(prices,
+                                   chart = False,
+                                   days = self.window_size)
+        sma = simple_mov_avg(prices,
+                             chart = False,
+                             days = self.window_size)
+        ema = exponential_mov_avg(prices,
+                                  chart = True, 
+                                  days = self.window_size)
+
+        # Some arrays...
+        X = []
+        Y = []
+        
+        # threshold to determine whether it's a buy signal or a sell signal or nothing
+        if 0.03 > 2 * self.impact:
+            threshold = 0.03
+        else:
+            threshold = 2 * self.impact
+        
+        for i in range(self.window_size + self.feature_size + 1, len(prices) - self.N):
+            X.append( np.concatenate((sma[i - self.feature_size : i],
+                                      bol_band[i - self.feature_size : i],
+                                      ema[i - self.feature_size : i])))
+            ret = (prices.values[i + self.N] - prices.values[i]) / \
+                   prices.values[i]
+
+            if ret > threshold:
+                Y.append(1)
+            else:
+                Y.append(0)
+
+        X = np.array(X)
+        Y = np.array(Y)
+        self.learner.addEvidence(X, Y)
 
     # this method should use the existing policy and test it against new data
     def testPolicy(self, symbol = "IBM", \
-        sd=dt.datetime(2009,1,1), \
-        ed=dt.datetime(2010,1,1), \
+        sd=datetime.datetime(2009,1,1), \
+        ed=datetime.datetime(2010,1,1), \
         sv = 10000):
 
-        # here we build a fake set of trades
-        # your code should return the same sort of data
         dates = pd.date_range(sd, ed)
         prices_all = ut.get_data([symbol], dates)  # automatically adds SPY
-        trades = prices_all[[symbol,]]  # only portfolio symbols
+        trades = prices_all[[symbol,]].copy(deep=True)  # only portfolio symbols
         trades_SPY = prices_all['SPY']  # only SPY, for comparison later
-        trades.values[:,:] = 0 # set them all to nothing
-        trades.values[0,:] = 1000 # add a BUY at the start
-        trades.values[40,:] = -1000 # add a SELL 
-        trades.values[41,:] = 1000 # add a BUY 
-        trades.values[60,:] = -2000 # go short from long
-        trades.values[61,:] = 2000 # go long from short
-        trades.values[-1,:] = -1000 #exit on the last day
+
+        # Get the price data from csv files
+        prices = ut.get_data([symbol], pd.date_range(sd, ed))
+        prices = prices[symbol]
+        curr_hold = 0
+
+        # Calculate the Bollinger, the Simple Moving Average and the
+        # Exponetial Moving Average for the prices found.
+        bol_band = bollinger_bands(prices,
+                                   chart = False,
+                                   days = self.window_size)
+        sma = simple_mov_avg(prices,
+                             chart = False,
+                             days = self.window_size)
+        ema = exponential_mov_avg(prices,
+                                  chart = False, 
+                                  days = self.window_size)
+
+        trades.values[:, :] = 0
+        Xtest = []
+
+        for i in range(self.window_size + self.feature_size + 1,
+                       len(prices) - 1):
+            data = np.concatenate((sma[i - self.feature_size : i], \
+                                  bol_band[i - self.feature_size : i], \
+                                  ema[i - self.feature_size : i]))
+            Xtest.append(data)
+
+        res = self.learner.query(Xtest)
+        for i, r in enumerate(res):
+            # These are for buys...
+            if r > 0:
+                trades.values[i + self.window_size \
+                                + self.feature_size + 1, : ] \
+                                = 1000 - curr_hold
+
+                curr_hold = 1000
+            #... or sells
+            else:
+                trades.values[i + self.window_size \
+                                + self.feature_size + 1, :] \
+                                = - 1000 - curr_hold
+                curr_hold = -1000
+
         if self.verbose: print type(trades) # it better be a DataFrame!
         if self.verbose: print trades
         if self.verbose: print prices_all
+
         return trades
+
+    def author():
+        return 'plivesey3'
 
 if __name__=="__main__":
     print "One does not simply think up a strategy"
