@@ -12,7 +12,6 @@ import DTLearner as dt
 from marketsimcode import compute_portvals
 from indicators import exponential_mov_avg, simple_mov_avg, bollinger_bands
 
-
 class StrategyLearner(object):
 
     # constructor
@@ -23,13 +22,11 @@ class StrategyLearner(object):
         self.window_size = 10
         self.bag = 20
         self.feature_size = 5
-        self.leafSz = 5
-        leaf_size = 5
-        bag = 20
+        self.leaf_size = 5
 
         self.learner = bl.BagLearner(learner=dt.DTLearner,
-                                     bags=bag,
-                                     kwargs={"leaf_size":leaf_size})
+                                     bags=self.bag,
+                                     kwargs={"leaf_size":self.leaf_size})
 
     def addEvidence(self, symbol = "IBM", \
         sd=datetime.datetime(2008,1,1), \
@@ -116,7 +113,8 @@ class StrategyLearner(object):
                                   ema[i - self.feature_size : i]))
             Xtest.append(data)
 
-        res = self.learner.query(Xtest)
+        res = self.learner.query(np.array(Xtest))
+
         for i, r in enumerate(res):
             # These are for buys...
             if r > 0:
@@ -132,7 +130,7 @@ class StrategyLearner(object):
                                 = - 1000 - curr_hold
                 curr_hold = -1000
 
-        if self.verbose: print type(trades) # it better be a DataFrame!
+        if self.verbose: print type(trades) 
         if self.verbose: print trades
         if self.verbose: print prices_all
 
@@ -142,4 +140,4 @@ class StrategyLearner(object):
         return 'plivesey3'
 
 if __name__=="__main__":
-    print "One does not simply think up a strategy"
+    print "Hoff"

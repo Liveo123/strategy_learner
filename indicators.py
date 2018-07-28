@@ -1,36 +1,42 @@
+"""
+    Strategy Learner by Paul Livesey (c)
+"""
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import datetime as dt
 
+
 def exponential_mov_avg(prices, days = 10, chart = True):
     """ Create exponential moving average of "days" days.
         Create a chart if chart is set.
     """
-
-    normed_prices = prices / prices[0]
+    
+    normed_prices = prices /prices[0]
     price_values = np.array(normed_prices.values)
 
     # Create the ema.
-    alp = float(2) / days + 1
+    alp = float(2) / (days + 1)
     ema = np.zeros(len(price_values))
     ema[0] = price_values[0]
     for cnt in range(1, len(price_values)):
         ema[cnt] = ema[cnt - 1] * (1 - alp) + price_values[cnt] * alp
-
+    ema_df = pd.DataFrame(data=ema, index=normed_prices.index, columns=['vals'])
     # Turn the numpy ema into a DataFrame.
     ema_df = pd.DataFrame(ema, 
-                          prices.index, 
+                          normed_prices.index, 
                           ['val'])
 
     # Display a chart if needed.
     if chart == True:
-        price_chart = plt.plot(prices, 
+
+        price_chart = plt.plot(normed_prices, 
                                'g',
-                               label = 'Price')
+                               label = 'Price($)')
         moving_avg_chart = plt.plot(ema_df, 
                                     'r',
-                                    label = 'Moving Average')
+                                    label = '%d-day Exp Moving Average' % days)
         plt.legend(loc='best')
         plt.show()
 
@@ -89,7 +95,7 @@ def bollinger_bands(prices, chart = True, days = 10):
 
         moving_avg_chart, = plt.plot(mov_avg_df, 
                                      'r', 
-                                     label = "Moving Average")
+                                     label = "%d-days Moving Average" % days)
 
 
         plt.legend(loc='best')
