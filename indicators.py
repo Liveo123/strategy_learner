@@ -3,12 +3,13 @@
 """
 
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import pandas as pd
 import numpy as np
 import datetime as dt
 
 
-def exponential_mov_avg(prices, days = 10, chart = True):
+def exponential_mov_avg(prices, symbol, days = 10, chart = True):
     """ Create exponential moving average of "days" days.
         Create a chart if chart is set.
     """
@@ -37,6 +38,7 @@ def exponential_mov_avg(prices, days = 10, chart = True):
         moving_avg_chart = plt.plot(ema_df, 
                                     'r',
                                     label = '%d-day Exp Moving Average' % days)
+        plt.title("%s EMA Chart" % symbol)
         plt.legend(loc='best')
         plt.show()
 
@@ -44,7 +46,7 @@ def exponential_mov_avg(prices, days = 10, chart = True):
 
     return to_return
 
-def bollinger_bands(prices, chart = True, days = 10):
+def bollinger_bands(prices, symbol, chart = True, days = 10):
     """ Create Bollinger Bands using SMA of "days" days.
         Create a chart if chart is set.
     """
@@ -97,7 +99,7 @@ def bollinger_bands(prices, chart = True, days = 10):
                                      'r', 
                                      label = "%d-days Moving Average" % days)
 
-
+        plt.title("%s Bollinger(c) Bands Chart" % symbol)
         plt.legend(loc='best')
         plt.show()
 
@@ -105,22 +107,28 @@ def bollinger_bands(prices, chart = True, days = 10):
 
     return bol_band
 
-def simple_mov_avg(prices, chart = True, days = 10):
+def simple_mov_avg(prices, symbol, chart = True, days = 10):
     """ Create simple moving average of the last "days" days  of prices
         Create a chart of the prices against the sma.
         SMA calculated by creating a rolling average of the last "days"
         days i.e. divide the last "days" days prices by days and add 
         the results to the mov_avg data structure.
     """
-    
     #_Calculate
     df_prices = prices.to_frame() 
     mov_avg_df = df_prices.rolling(days).mean()
 
     # Display a chart if needed.
     if chart == True:
-        price_chart = plt.plot(prices, 'r', label = 'Price ($)')
-        moving_avg_chart = plt.plot(mov_avg_df, 'b', label = '%d-days SMA' % days)
+        price_chart = plt.plot(prices,
+                               'r', 
+                               label = 'Price ($)')
+
+        moving_avg_chart = plt.plot(mov_avg_df, 
+                                    'b', 
+                                    label = '%d-days SMA' % days)
+
+        plt.title("%s SMA Chart" % symbol)
         plt.legend(loc='best')
         plt.show()
 
