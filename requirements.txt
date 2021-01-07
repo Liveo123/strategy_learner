@@ -11,7 +11,7 @@ httplib2==0.9.1
 idna==2.0
 ipaddress==1.0.16
 lockfile==0.12.2
-lxml==3.5.0
+lxml==4.6.2
 matplotlib==2.0.2
 ndg-httpsclient==0.4.0
 numpy==1.13.1
